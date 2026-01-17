@@ -2,8 +2,10 @@ const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const connectDB = require('./config/db');
-const userRoutes = require('./routes/userRoutes');
 
+// Mount Route files
+const userRoutes = require('./routes/userRoutes');
+const problemRoutes = require('./routes/problemRoutes');
 // Load env vars
 dotenv.config();
 
@@ -19,6 +21,7 @@ app.use(cors());
 
 //Mount Routes
 app.use('/api/users', userRoutes);
+app.use('/api/problems', problemRoutes);
 
 // Basic Route
 app.get('/', (req, res) => {
