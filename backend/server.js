@@ -1,13 +1,14 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
-const connectDB = require('./config/db'); // <--- 1. Import the file
+const connectDB = require('./config/db');
+const userRoutes = require('./routes/userRoutes');
 
 // Load env vars
 dotenv.config();
 
 // Connect to Database
-connectDB(); // <--- 2. Run the connection
+connectDB(); 
 
 // Initialize app
 const app = express();
@@ -15,6 +16,9 @@ const app = express();
 // Middleware
 app.use(express.json());
 app.use(cors());
+
+//Mount Routes
+app.use('/api/users', userRoutes);
 
 // Basic Route
 app.get('/', (req, res) => {
