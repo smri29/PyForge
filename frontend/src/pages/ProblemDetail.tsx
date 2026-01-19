@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
-import { Play, Send, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Play, Send, CheckCircle2 } from 'lucide-react';
 import AppLayout from '../components/layout/AppLayout';
 import api from '../services/api';
 import { Button } from '../components/ui/Button';
@@ -14,6 +14,9 @@ const ProblemDetail = () => {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  
+  // New State for Python Output
+  const [output, setOutput] = useState<string | null>(null);
 
   // Fetch problem details on load
   useEffect(() => {
@@ -34,15 +37,19 @@ const ProblemDetail = () => {
 
   const handleSubmit = async () => {
     setSubmitting(true);
+    setOutput(null); // Clear previous output
     try {
-      // Phase 03: We will eventually send this to the Python Service
+      // Call Backend which calls Python Service
       const { data } = await api.post('/submissions', {
         problemId: id,
         code: code,
         language: 'python'
       });
       
-      toast.success('Code Submitted! (Grading pending in Phase 3)');
+      toast.success('Code Executed!');
+      // Update the console with the response
+      setOutput(data.output);
+      
     } catch (error) {
       toast.error('Submission failed');
     } finally {
@@ -92,7 +99,7 @@ const ProblemDetail = () => {
           </div>
         </div>
 
-        {/* RIGHT PANEL: Code Editor */}
+        {/* RIGHT PANEL: Code Editor & Console */}
         <div className="w-1/2 flex flex-col bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
           {/* Editor Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-800">
@@ -135,6 +142,20 @@ const ProblemDetail = () => {
                 automaticLayout: true,
               }}
             />
+          </div>
+
+          {/* Output Console (New Addition) */}
+          <div className="h-48 bg-slate-950 border-t border-slate-800 p-4 font-mono text-sm overflow-y-auto">
+            <div className="flex items-center gap-2 text-slate-500 mb-2">
+              <div className="w-2 h-2 rounded-full bg-slate-600" />
+              <span>Console Output</span>
+            </div>
+            
+            {output ? (
+              <pre className="text-green-400 whitespace-pre-wrap">{output}</pre>
+            ) : (
+              <div className="text-slate-600 italic">Run your code to see output...</div>
+            )}
           </div>
         </div>
       </div>
