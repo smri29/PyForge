@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
 import { useAuth } from './hooks/useAuth';
 
 // A wrapper to protect routes (Dashboard shouldn't be public)
@@ -18,14 +19,12 @@ function App() {
         {/* Public Route */}
         <Route path="/login" element={<Login />} />
 
-        {/* Protected Route (Placeholder for now) */}
+        {/* Protected Route: Real Dashboard */}
         <Route 
           path="/dashboard" 
           element={
             <ProtectedRoute>
-              <div className="min-h-screen bg-slate-900 text-white p-10">
-                <h1 className="text-3xl font-bold">Welcome to the Dashboard! 🚀</h1>
-              </div>
+              <Dashboard />
             </ProtectedRoute>
           } 
         />
