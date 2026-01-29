@@ -1,7 +1,7 @@
 // src/pages/admin/AdminDashboard.tsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import AdminLayout from '../../components/layout/AdminLayout'; // Use NEW Layout
+import AdminLayout from '../../components/layout/AdminLayout'; 
 import api from '../../services/api';
 import { Button } from '../../components/ui/Button';
 import { 
@@ -12,28 +12,50 @@ import {
   Database, 
   Users, 
   Server,
-  MoreVertical,
-  Edit
+  Edit,
+  Loader2,
+  ExternalLink
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const AdminDashboard = () => {
   const [problems, setProblems] = useState<any[]>([]);
+  const [dashboardStats, setDashboardStats] = useState({
+    userCount: 0,
+    systemStatus: 'Checking...',
+    latency: 0,
+    isSystemHealthy: true
+  });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDifficulty, setFilterDifficulty] = useState('All');
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchProblems();
+    fetchAllData();
   }, []);
 
-  const fetchProblems = async () => {
+  const fetchAllData = async () => {
     try {
-      const { data } = await api.get('/problems');
-      setProblems(data);
+      // Parallel Data Fetching for Dashboard Efficiency
+      const [problemsRes, usersRes, analyticsRes] = await Promise.all([
+        api.get('/problems'),
+        api.get('/users'),
+        api.get('/analytics')
+      ]);
+
+      setProblems(problemsRes.data);
+      
+      setDashboardStats({
+        userCount: usersRes.data.length,
+        systemStatus: analyticsRes.data.uptime ? 'Operational' : 'Degraded',
+        latency: analyticsRes.data.latency,
+        isSystemHealthy: true
+      });
+
     } catch (error) {
-      toast.error('Failed to load system data');
+      console.error("Dashboard Load Error:", error);
+      toast.error('Partial system data load failure');
     } finally {
       setLoading(false);
     }
@@ -44,7 +66,8 @@ const AdminDashboard = () => {
     try {
       await api.delete(`/problems/${id}`);
       toast.success('Problem deleted from database');
-      fetchProblems(); 
+      // Refresh list locally to save an API call
+      setProblems(prev => prev.filter(p => p._id !== id));
     } catch (error) {
       toast.error('Delete failed');
     }
@@ -57,7 +80,7 @@ const AdminDashboard = () => {
     return matchesSearch && matchesDiff;
   });
 
-  const stats = {
+  const problemStats = {
     total: problems.length,
     easy: problems.filter(p => p.difficulty === 'Easy').length,
     medium: problems.filter(p => p.difficulty === 'Medium').length,
@@ -67,13 +90,14 @@ const AdminDashboard = () => {
   return (
     <AdminLayout>
       {/* Header */}
-      <div className="flex justify-between items-end mb-10">
+      <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-4">
         <div>
           <h1 className="text-3xl font-bold text-white mb-2">System Control Center</h1>
           <p className="text-slate-400">Overview of platform content and metrics.</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="secondary" onClick={() => toast('Feature coming soon')}>
+          {/* FIX: Manage Users now navigates correctly */}
+          <Button variant="secondary" onClick={() => navigate('/admin/users')}>
             <Users className="w-4 h-4 mr-2" /> Manage Users
           </Button>
           <Button className="bg-red-600 hover:bg-red-700 !w-auto" onClick={() => navigate('/admin/create-problem')}>
@@ -84,35 +108,55 @@ const AdminDashboard = () => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        
+        {/* Card 1: Problems */}
         <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
             <Database className="w-24 h-24 text-red-500" />
           </div>
           <h3 className="text-slate-400 font-medium mb-1">Total Challenges</h3>
-          <p className="text-3xl font-bold text-white">{stats.total}</p>
+          <p className="text-3xl font-bold text-white">{loading ? '...' : problemStats.total}</p>
           <div className="mt-4 flex gap-2 text-xs">
-            <span className="px-2 py-1 bg-green-500/10 text-green-400 rounded border border-green-500/20">{stats.easy} Easy</span>
-            <span className="px-2 py-1 bg-yellow-500/10 text-yellow-400 rounded border border-yellow-500/20">{stats.medium} Med</span>
-            <span className="px-2 py-1 bg-red-500/10 text-red-400 rounded border border-red-500/20">{stats.hard} Hard</span>
+            <span className="px-2 py-1 bg-green-500/10 text-green-400 rounded border border-green-500/20">{problemStats.easy} Easy</span>
+            <span className="px-2 py-1 bg-yellow-500/10 text-yellow-400 rounded border border-yellow-500/20">{problemStats.medium} Med</span>
+            <span className="px-2 py-1 bg-red-500/10 text-red-400 rounded border border-red-500/20">{problemStats.hard} Hard</span>
           </div>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl relative overflow-hidden">
+        {/* Card 2: Users (Real Data) */}
+        <div 
+          className="bg-slate-900 border border-slate-800 p-6 rounded-xl relative overflow-hidden cursor-pointer hover:border-blue-500/30 transition-colors"
+          onClick={() => navigate('/admin/users')}
+        >
           <div className="absolute top-0 right-0 p-4 opacity-10">
             <Users className="w-24 h-24 text-blue-500" />
           </div>
-          <h3 className="text-slate-400 font-medium mb-1">Active Users</h3>
-          <p className="text-3xl font-bold text-white">--</p>
-          <p className="text-xs text-slate-500 mt-2">Mock Data</p>
+          <div className="flex justify-between items-start">
+            <h3 className="text-slate-400 font-medium mb-1">Total Users</h3>
+            <ExternalLink className="w-4 h-4 text-slate-600" />
+          </div>
+          <p className="text-3xl font-bold text-white">{loading ? '...' : dashboardStats.userCount}</p>
+          <p className="text-xs text-blue-400 mt-2">Registered Candidates</p>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl relative overflow-hidden">
+        {/* Card 3: System Status (Real Data) */}
+        <div 
+          className="bg-slate-900 border border-slate-800 p-6 rounded-xl relative overflow-hidden cursor-pointer hover:border-purple-500/30 transition-colors"
+          onClick={() => navigate('/admin/analytics')}
+        >
           <div className="absolute top-0 right-0 p-4 opacity-10">
             <Server className="w-24 h-24 text-purple-500" />
           </div>
-          <h3 className="text-slate-400 font-medium mb-1">System Status</h3>
-          <p className="text-3xl font-bold text-emerald-400">Operational</p>
-          <p className="text-xs text-slate-500 mt-2">Latency: 45ms</p>
+          <div className="flex justify-between items-start">
+             <h3 className="text-slate-400 font-medium mb-1">System Status</h3>
+             <ExternalLink className="w-4 h-4 text-slate-600" />
+          </div>
+          <p className={`text-3xl font-bold ${dashboardStats.isSystemHealthy ? 'text-emerald-400' : 'text-amber-400'}`}>
+             {loading ? '...' : dashboardStats.systemStatus}
+          </p>
+          <p className="text-xs text-slate-500 mt-2">
+             Latency: {loading ? '--' : dashboardStats.latency}ms
+          </p>
         </div>
       </div>
 
@@ -160,14 +204,21 @@ const AdminDashboard = () => {
             </thead>
             <tbody className="divide-y divide-slate-800">
               {loading ? (
-                <tr><td colSpan={5} className="p-8 text-center">Accessing Database...</td></tr>
+                <tr>
+                   <td colSpan={5} className="p-8 text-center">
+                      <div className="flex justify-center items-center gap-2">
+                         <Loader2 className="w-5 h-5 animate-spin text-slate-500" />
+                         <span>Syncing with Mainframe...</span>
+                      </div>
+                   </td>
+                </tr>
               ) : filteredProblems.length === 0 ? (
                 <tr><td colSpan={5} className="p-8 text-center italic">No records found.</td></tr>
               ) : (
                 filteredProblems.map((prob) => (
                   <tr key={prob._id} className="hover:bg-slate-800/50 transition-colors group">
                     <td className="px-6 py-4">
-                      <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                     </td>
                     <td className="px-6 py-4 text-white font-medium">{prob.title}</td>
                     <td className="px-6 py-4">
@@ -186,12 +237,17 @@ const AdminDashboard = () => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors">
+                        <button 
+                          onClick={() => navigate(`/admin/edit-problem/${prob._id}`)}
+                          className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors"
+                          title="Edit Challenge"
+                        >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button 
                           onClick={() => handleDelete(prob._id)}
                           className="p-2 hover:bg-red-900/30 rounded-lg text-red-400 hover:text-red-300 transition-colors"
+                          title="Delete Challenge"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
